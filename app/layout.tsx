@@ -1,4 +1,5 @@
 export const metadata = {
   title: "Inventory Reservation System",
-  description: "Reservation API using Next.js and Prisma",
+  description:
+    "Inventory reservation backend using Next.js Prisma and PostgreSQL",
 };
