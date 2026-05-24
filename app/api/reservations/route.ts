@@ -5,60 +5,93 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const inventory = await prisma.inventory.findFirst({
-      where: {
-        productId: body.productId,
-      },
-    });
-
-    if (!inventory) {
-      return NextResponse.json(
-        { error: "Inventory not found" },
-        { status: 404 }
-      );
-    }
-
-    const availableStock =
-      inventory.totalStock - inventory.reservedStock;
-
-    if (body.quantity > availableStock) {
-      return NextResponse.json(
-        { error: "Insufficient stock" },
-        { status: 409 }
-      );
-    }
-
     const reservation =
-      await prisma.reservation.create({
-        data: {
-          productId: body.productId,
-          quantity: body.quantity,
-          expiresAt: new Date(
-            Date.now() + 15 * 60 * 1000
-          ),
-        },
-      });
+      await prisma.$transaction(
+        async (tx) => {
 
-    await prisma.inventory.update({
-      where: {
-        id: inventory.id,
-      },
-      data: {
-        reservedStock: {
-          increment: body.quantity,
-        },
-      },
-    });
+          const inventory =
+            await tx.inventory.findFirst({
+              where: {
+                productId:
+                  body.productId,
+              },
+            });
+
+          if (!inventory) {
+            throw new Error(
+              "Product not found"
+            );
+          }
+
+          const available =
+            inventory.totalStock -
+            inventory.reservedStock;
+
+          if (
+            available <
+            body.quantity
+          ) {
+            throw new Error(
+              "Insufficient stock"
+            );
+          }
+
+          await tx.inventory.update({
+            where: {
+              id: inventory.id,
+            },
+            data: {
+              reservedStock: {
+                increment:
+                  body.quantity,
+              },
+            },
+          });
+
+          return await tx.reservation.create({
+            data: {
+              productId:
+                body.productId,
+              quantity:
+                body.quantity,
+              expiresAt:
+                new Date(
+                  Date.now() +
+                    15 *
+                      60 *
+                      1000
+                ),
+            },
+          });
+        }
+      );
 
     return NextResponse.json(
       reservation,
-      { status: 201 }
+      {
+        status: 201,
+      }
     );
 
-  } catch {
+  } catch (error) {
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Failed";
+
     return NextResponse.json(
-      { error: "Failed" },
-      { status: 500 }
+      {
+        error:
+          message,
+      },
+      {
+        status:
+          message ===
+          "Insufficient stock"
+            ? 409
+            : 500,
+      }
     );
   }
 }
