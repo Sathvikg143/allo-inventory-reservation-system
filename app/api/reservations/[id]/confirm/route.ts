@@ -20,6 +20,25 @@ export async function POST(
       );
     }
 
+    if (
+      reservation.status === "RELEASED"
+    ) {
+      return NextResponse.json(
+        { error: "Reservation released" },
+        { status: 400 }
+      );
+    }
+
+    if (
+      reservation.expiresAt <
+      new Date()
+    ) {
+      return NextResponse.json(
+        { error: "Reservation expired" },
+        { status: 410 }
+      );
+    }
+
     await prisma.reservation.update({
       where: { id },
       data: {
