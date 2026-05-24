@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     if (body.quantity > availableStock) {
       return NextResponse.json(
         { error: "Insufficient stock" },
-        { status: 400 }
+        { status: 409 }
       );
     }
 
